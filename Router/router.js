@@ -18,7 +18,7 @@ router.post("/create", (req, res) => {
     try {
         conn.query("select * from users where cnic =?", cnic, (err, result) => {
             if (result.length) {
-                res.status(422).json("This Data is Already Exist")
+                res.status(422).json("This Data  Already Exist")
             }
             else {
                 conn.query("Insert into users SET ?", { name, cnic, phonenumber, password }, (err, result) => {
@@ -146,6 +146,9 @@ router.delete("/deleteuser/:id",(req,res)=>{
 router.post("/login",(req,res)=>{
     const username= req.body.username;
     const password= req.body.password;
+    console.log(req.body.username);
+    console.log(req.body.password);
+
     conn.query("select * from users where name= ? and password = ?",[username,password] ,(error,results)=>{
         if(error)
         {
