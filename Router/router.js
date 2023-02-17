@@ -146,8 +146,6 @@ router.delete("/deleteuser/:id",(req,res)=>{
 router.post("/login",(req,res)=>{
     const username= req.body.username;
     const password= req.body.password;
-    console.log(req.body.username);
-    console.log(req.body.password);
 
     conn.query("select * from users where name= ? and password = ?",[username,password] ,(error,results)=>{
         if(error)
@@ -166,6 +164,35 @@ router.post("/login",(req,res)=>{
     })
 })
 
+// update Patients
+router.patch("/updatepatient/:id",(req,res)=>{
+
+    const {id} = req.params;
+
+    const data = req.body;
+
+    conn.query("UPDATE users SET ? WHERE id = ? ",[data,id],(err,result)=>{
+        if(err){
+            res.status(422).json({message:"error"});
+        }else{
+            res.status(201).json(result);
+        }
+    })
+});
+
+//get single patient detail
+router.get("/indusers/:id",(req,res)=>{
+
+    const {id} = req.params;
+
+    conn.query("SELECT * FROM users WHERE id = ? ",id,(err,result)=>{
+        if(err){
+            res.status(422).json("error");
+        }else{
+            res.status(201).json(result);
+        }
+    })
+});
 
 
 
