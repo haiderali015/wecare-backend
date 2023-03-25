@@ -471,13 +471,11 @@ router.delete("/deleteDoctor/:id", (req, res) => {
 
  //add Doctor
 router.post("/addnewDoctor", (req, res) => {
-    console.log(req.body);
 
     const { username, Experience,degree, Type, HospitalID,password,cnic,city,hospital } = req.body;
 
     if (!username || !Experience || !degree || !Type || !HospitalID || !password || !cnic || !city || !hospital) {
         res.status(422).json("please fill all fields");
-        console.log("if field")
     }
 
     else {
