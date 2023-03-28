@@ -130,6 +130,7 @@ router.get("/appointments/:id", (req, res) => {
         }
     })
 });
+
 //
 router.post("/slots", (req, res) => {
 
@@ -140,7 +141,7 @@ router.post("/slots", (req, res) => {
             console.log("error is", err);
         }
         else {
-            conn.query(`SELECT Time FROM wecare.appointments where DoctorId=${1} AND Time>NOW() `, (error, resl) => {
+            conn.query(`SELECT Time FROM wecare.appointments where DoctorId=${id} `, (error, resl) => {
                 if (err) {
                     console.log("error is", err);
                 }
@@ -152,6 +153,7 @@ router.post("/slots", (req, res) => {
         }
     })
 });
+
 // getDoctors
 router.get("/getDoctors", (req, res) => {
     // const {city,hospital} = req.params;
@@ -170,7 +172,6 @@ router.get("/getDoctors", (req, res) => {
         }
     })
 });
-
 
 //add medicine
 router.post("/addMedicine", (req, res) => {
@@ -271,10 +272,10 @@ router.delete("/deleteuser/:id", (req, res) => {
     })
 });
 
-  
-  
-  
-  
+
+
+
+
 
 
 
@@ -320,6 +321,11 @@ router.delete("/deleteuser/:id", (req, res) => {
 router.post("/login", async (req, res) => {
     const username = req.body.username;
     const password = req.body.password;
+    const jwt = require('jsonwebtoken');
+    const secretKey = 'wecare';
+
+
+
 
     conn.query('SELECT * FROM users WHERE name = ?', [username], async (error, results, fields) => {
         if (error) {
@@ -331,6 +337,18 @@ router.post("/login", async (req, res) => {
         } else {
             if (results.length > 0) {
 
+                // Create a JWT token with a payload and secret key
+                const payload = {
+                    userId: results[0].id,
+                    username: results[0].name,
+                    password: results[0].password
+
+                };
+                // const options = {
+                //     expiresIn: '1h'
+                // };
+                const token = jwt.sign(payload, secretKey);
+            
                 const dbpassword = results[0].password;
 
                 const isMatch = await bcrypt.compare(password, dbpassword);
@@ -339,7 +357,8 @@ router.post("/login", async (req, res) => {
 
                     res.send({
                         "code": 200,
-                        "success": "login successful"
+                        "success": "login successful",
+                        token:token,
                     });
                 } else {
                     console.log("failed login");
@@ -361,6 +380,63 @@ router.post("/login", async (req, res) => {
     });
 });
 
+
+// doctor signin
+router.post("/loginDoctor", async (req, res) => {
+    const username = req.body.username;
+    const password = req.body.password;
+    const jwt = require('jsonwebtoken');
+    const secretKey = 'wecare';
+
+    conn.query('SELECT * FROM doctor WHERE username = ?', [username], async (error, results, fields) => {
+        if (error) {
+            console.log(error);
+            res.send({
+                "code": 400,
+                "failed": "error occurred"
+            });
+        } else {
+            if (results.length > 0) {
+
+                // Create a JWT token with a payload and secret key
+                const payload = {
+                    doctorID: results[0].Id,
+                    username: results[0].username,
+                    password: results[0].password
+
+                };
+                const token = jwt.sign(payload, secretKey);
+            
+                // const dbpassword = results[0].password;
+
+                // const isMatch = await bcrypt.compare(password, dbpassword);
+                if (password) {
+                    console.log("success login");
+
+                    res.send({
+                        "code": 200,
+                        "success": "login successful",
+                        token:token,
+                    });
+                } else {
+                    console.log("failed login");
+
+                    res.send({
+                        "code": 204,
+                        "failed": "Username and password do not match"
+                    });
+                }
+            } else {
+                console.log("Username does not exist");
+
+                res.send({
+                    "code": 204,
+                    "failed": "Username does not exist"
+                });
+            }
+        }
+    });
+});
 
 
 
@@ -424,8 +500,8 @@ router.get("/getAllPatients", (req, res) => {
 
 //get single doctor
 
-router.get("/indDoctor/:id", (req,res)=>{
-    const {id} = req.params
+router.get("/indDoctor/:id", (req, res) => {
+    const { id } = req.params
     conn.query("SELECT * FROM doctor WHERE Id = ? ", id, (err, result) => {
         if (err) {
             res.status(422).json("error");
@@ -469,17 +545,17 @@ router.delete("/deleteDoctor/:id", (req, res) => {
     })
 });
 
- //add Doctor
+//add Doctor
 router.post("/addnewDoctor", (req, res) => {
 
-    const { username, Experience,degree, Type, HospitalID,password,cnic,city,hospital } = req.body;
+    const { username, Experience, degree, Type, HospitalID, password, cnic, city, hospital } = req.body;
 
     if (!username || !Experience || !degree || !Type || !HospitalID || !password || !cnic || !city || !hospital) {
         res.status(422).json("please fill all fields");
     }
 
     else {
-        conn.query("Insert into doctor SET ?", { username, Experience,degree, Type, HospitalID,password,cnic,city,hospital }, (err, result) => {
+        conn.query("Insert into doctor SET ?", { username, Experience, degree, Type, HospitalID, password, cnic, city, hospital }, (err, result) => {
             if (err) {
                 console.log("error is", err);
             }
@@ -505,6 +581,42 @@ router.delete("/deletePatient/:id", (req, res) => {
         }
     })
 });
+
+// new Apis
+router.post('/doctor_records/:id', (req, res) => {
+    let { appointment_id, Diagnosis, Allergies, Medicines, Notes, DoctorId, UserId } = req.body;
+    const newRecord = { appointment_id, Diagnosis, Allergies, Medicines: JSON.stringify(Medicines), Notes, DoctorId, UserId };
+    console.log(newRecord);
+    conn.query('Insert into checkup (appointment_id,Diagnosis,Allergies,Medicines,Notes,DoctorId,UserId) VALUES  (?,?,?,?,?,?,?) ', [appointment_id, Diagnosis, Allergies, JSON.stringify(Medicines), Notes, DoctorId, UserId], (err, result) => {
+        if (err) {
+            throw err;
+        }
+        res.send('Record created successfully');
+    });
+});
+
+router.get('/doctor_records', (req, res) => {
+    conn.query('SELECT * FROM doctor_records', (err, results) => {
+        if (err) {
+            throw err;
+        }
+        res.json(results);
+    });
+});
+
+
+//get patient single patient
+router.get("/getpatient/:id", (req, res) => {
+    const { id } = req.params
+    conn.query("SELECT * FROM users WHERE Id = ? ", id, (err, result) => {
+        if (err) {
+            res.status(422).json("error");
+        } else {
+            res.status(201).json(result);
+        }
+    })
+});
+
 
 
 
