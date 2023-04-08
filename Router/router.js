@@ -5,49 +5,6 @@ const bcrypt = require('bcrypt');
 var database = require("../db/conn")
 
 
-
-// const jwt = require('jsonwebtoken');
-// const secret = 'your-secret-key';
-
-
-// router.post("/create", (req, res) => {
-//     console.log(req.body);
-
-//     const { name, cnic, phonenumber, password } = req.body;
-
-//     if (!name || !cnic || !phonenumber || !password) {
-//         res.status(422).json("please fill all fields");
-//     }
-
-//     try {
-//         conn.query("select * from users where cnic =?", cnic, (err, result) => {
-//             if (result.length) {
-//                 res.status(422).json("This Data is Already Exist")
-//             }
-//             else {
-//                 conn.query("Insert into users SET ?", { name, cnic, phonenumber, password }, (err, result) => {
-//                     if (err) {
-//                         console.log("error is", err);
-//                     }
-//                     else {
-//                         // Generate a JWT on successful signup
-//                         const token = jwt.sign({ userId: result.insertId }, secret, { expiresIn: '1h' });
-
-//                         // Set the JWT as a cookie
-//                         res.cookie('token', token, { httpOnly: true, maxAge: 3600000 });
-
-//                         res.status(201).json("User Added");
-//                     }
-//                 })
-//             }
-//         })
-//     }
-//     catch (error) {
-//         res.status(422).json(error);
-//     }
-// });
-
-
 //register user
 router.post("/create", async (req, res) => {
     const { name, cnic, phonenumber, password } = req.body;
@@ -94,15 +51,9 @@ router.post("/create", async (req, res) => {
 
 router.post("/bookdoc", (req, res) => {
     console.log(req.body);
-    const { id, userId, bookdate } = req.body;
-    // console.log(id);
+    const { id, userId, bookdate ,username , doctorFee , doctor_hospital} = req.body;
     try {
-        // conn.query("select * from appointments where Id =?", cnic, (err, result) => {
-        // if (result.length) {
-        // res.status(422).json("This Data is Already Exist")
-        // }
-        // else {
-        conn.query(`Insert into appointments (PatientId,DoctorId,Time) values (${userId},${id},'${new Date(bookdate).toISOString().slice(0, 19).replace('T', ' ')} '+interval '5' hour);`, (err, result) => {
+        conn.query(`Insert into appointments (PatientId,DoctorId,Time,DoctorName,DoctorFee,Hospital) values (${userId},${id},'${new Date(bookdate).toISOString().slice(0, 19).replace('T', ' ')} '+interval '5' hour,'${username}','${doctorFee}','${doctor_hospital}');`, (err, result) => {
             if (err) {
                 console.log("error is", err);
             }
@@ -110,14 +61,13 @@ router.post("/bookdoc", (req, res) => {
                 res.status(201).json("Booking Added");
             }
         })
-        // }
-        // }
-        // )
     }
     catch (error) {
         res.status(422).json(error);
     }
 });
+
+
 
 
 router.get("/appointments/:id", (req, res) => {
@@ -257,6 +207,88 @@ router.patch("/updatemedicine/:id", (req, res) => {
     })
 });
 
+
+// show all pharmacies
+router.get("/getAllPharmacies", (req, res) => {
+
+    conn.query("SELECT * FROM pharmacylist", (err, result) => {
+        if (err) {
+            res.status(422).json("no data available");
+        } else {
+            res.status(201).json(result);
+        }
+    })
+});
+
+//add pharmacy
+router.post("/addnewPharmacy", (req, res) => {
+
+    const { name, address, city, password, phonenumber } = req.body;
+
+    if (!name || !address || !city || !password || !phonenumber ) {
+        res.status(422).json("please fill all fields");
+    }
+
+    else {
+        conn.query("Insert into pharmacylist SET ?", { name, address, city, password, phonenumber }, (err, result) => {
+            if (err) {
+                console.log("error is", err);
+            }
+            else {
+                res.status(201).json("Pharmacy Added");
+            }
+        })
+    }
+
+});
+
+
+// pharmacy delete  api
+
+router.delete("/deletepharmacy/:id", (req, res) => {
+
+    const { id } = req.params;
+
+    conn.query("DELETE FROM pharmacylist WHERE id = ? ", id, (err, result) => {
+        if (err) {
+            res.status(422).json("error");
+        } else {
+            res.status(201).json(result);
+        }
+    })
+});
+ 
+//get single medicine detail
+router.get("/inPharmacy/:id", (req, res) => {
+
+    const { id } = req.params;
+
+    conn.query("SELECT * FROM pharmacylist WHERE id = ? ", id, (err, result) => {
+        if (err) {
+            res.status(422).json("error");
+        } else {
+            res.status(201).json(result);
+        }
+    })
+});
+
+// update PharmacyList api
+
+
+router.patch("/updatePharmacylist/:id", (req, res) => {
+
+    const { id } = req.params;
+
+    const data = req.body;
+
+    conn.query("UPDATE pharmacylist SET ? WHERE id = ? ", [data, id], (err, result) => {
+        if (err) {
+            res.status(422).json({ message: "error" });
+        } else {
+            res.status(201).json(result);
+        }
+    })
+});
 // user delete medicine api
 
 router.delete("/deleteuser/:id", (req, res) => {
@@ -271,52 +303,6 @@ router.delete("/deleteuser/:id", (req, res) => {
         }
     })
 });
-
-
-
-
-
-
-
-
-// router.post("/login", async (req, res) => {
-//     const username = req.body.username;
-//     const password = req.body.password;
-
-//     conn.query("select * from users where name= ? and password = ?", [username, password], (error, results) => {
-//         if (error) {
-//             console.log(error)
-//         }
-//         else {
-//             if (results.length > 0) {
-//                 res.send(results)
-//             }
-//             else {
-//                 res.send({ message: "enter correct details" })
-//             }
-
-//         }
-//     })
-// })
-
-
-
-// router.post("/login", async (req, res) => {
-// const username = req.body.username;
-// const password = req.body.password;
-
-// const [rows] = await conn.execute('SELECT password FROM users WHERE name = ?', [username]);
-
-// // check if password matches
-// const dbpassword = rows[0].password;
-// const isMatch = await bcrypt.compare(password, dbpassword);
-// if (isMatch) {
-//     res.send(results)
-// }
-// else {
-//     res.send({ message: "enter correct details" })
-// }
-// })
 
 router.post("/login", async (req, res) => {
     const username = req.body.username;
@@ -432,6 +418,66 @@ router.post("/loginDoctor", async (req, res) => {
                 res.send({
                     "code": 204,
                     "failed": "Username does not exist"
+                });
+            }
+        }
+    });
+});
+
+
+
+
+// pharmacy signin
+router.post("/loginPharmacy", async (req, res) => {
+    const username = req.body.username;
+    const password = req.body.password;
+    const jwt = require('jsonwebtoken');
+    const secretKey = 'wecare';
+
+    conn.query('SELECT * FROM pharmacylist WHERE name = ?', [username], async (error, results, fields) => {
+        if (error) {
+            console.log(error);
+            res.send({
+                "code": 400,
+                "failed": "error occurred"
+            });
+        } else {
+            if (results.length > 0) {
+
+                // Create a JWT token with a payload and secret key
+                const payload = {
+                    phramacyID: results[0].id,
+                    name: results[0].name,
+                    password: results[0].password
+
+                };
+                const token = jwt.sign(payload, secretKey);
+            
+                // const dbpassword = results[0].password;
+
+                // const isMatch = await bcrypt.compare(password, dbpassword);
+                if (password) {
+                    console.log("success login");
+
+                    res.send({
+                        "code": 200,
+                        "success": "login successful",
+                        token:token,
+                    });
+                } else {
+                    console.log("failed login");
+
+                    res.send({
+                        "code": 204,
+                        "failed": "name and password do not match"
+                    });
+                }
+            } else {
+                console.log("name does not exist");
+
+                res.send({
+                    "code": 204,
+                    "failed": "name does not exist"
                 });
             }
         }
@@ -617,7 +663,50 @@ router.get("/getpatient/:id", (req, res) => {
     })
 });
 
+//get patient prescription
+router.get("/getprescription/:id", (req, res) => {
+    const { id } = req.params
+    conn.query("SELECT * FROM checkup WHERE Id = ? ", id, (err, result) => {
+        if (err) {
+            res.status(422).json("error");
+        } else {
+            res.status(201).json(result);
+        }
+    })
+});
+
+//show all appointments
+router.get("/getAllAppointments/:id", (req, res) => {
+    const { id } = req.params;
+
+    conn.query("SELECT * FROM appointments WHERE id = ? ", [id],  (err, result) => {
+        if (err) {
+            res.status(422).json("no data available");
+        } else {
+            res.status(201).json(result);
+        }
+    })
+});
 
 
+router.get("/getAppointment/:id", (req, res) => {
+    const { id } = req.params;
+  
+    const query = `SELECT appointments.DoctorName, appointments.Hospital, appointments.DoctorFee, checkup.Medicines, checkup.Diagnosis
+                   FROM appointments
+                   JOIN checkup ON appointments.Id = checkup.appointment_id
+                   WHERE appointments.PatientId = ?`;
+  
+    conn.query(query, id, (err, result) => {
+      if (err) {
+        console.error(err);
+        res.status(422).json("no data available");
+      } else {
+        console.log(result);
+        res.status(201).json(result);
+      }
+    });
+  });
+  
 
 module.exports = router;
