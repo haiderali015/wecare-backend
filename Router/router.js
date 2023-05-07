@@ -49,11 +49,48 @@ router.post("/create", async (req, res) => {
     }
 });
 
+router.post("/medicinesrecord", async (req, res) => {
+    const { name, cnic, address, medicinename, quantity, total ,PName, PAddress,date} = req.body;
+  
+    if (!name || !cnic || !address || !medicinename || !quantity || !total || !PName || !PAddress) {
+      res.status(422).json("please fill all fields");
+      console.log("iam in if field");
+      return;
+    }
+  
+    conn.query(
+      "INSERT INTO medicinerecord1 (name, cnic, address, medicine, quantity, total,pharmacyName,pharmacyAddress,date) VALUES (?, ?, ?, ?, ?, ?,?,?,?)",
+      [name, cnic, address, medicinename, quantity, total,PName, PAddress,date],
+      (err, result) => {
+        if (err) {
+          console.log("error inserting record:", err);
+          res.status(500).json("Internal Server Error");
+          return;
+        }
+  
+        conn.query(
+          "UPDATE pharmacy1 SET quantity = quantity - ? WHERE name = ?",
+          [quantity, medicinename],
+          (err, result) => {
+            if (err) {
+              console.log("error updating inventory:", err);
+              res.status(500).json("Internal Server Error");
+              return;
+            }
+  
+            res.status(201).json("Record Added");
+          }
+        );
+      }
+    );
+  });
+  
 router.post("/bookdoc", (req, res) => {
     console.log(req.body);
-    const { id, userId, bookdate ,username , doctorFee , doctor_hospital} = req.body;
+    const { id, userId, bookdate ,Doctor_Name , doctorFee , doctor_hospital} = req.body;
+    console.log("doctor name is "+ Doctor_Name);
     try {
-        conn.query(`Insert into appointments (PatientId,DoctorId,Time,DoctorName,DoctorFee,Hospital) values (${userId},${id},'${new Date(bookdate).toISOString().slice(0, 19).replace('T', ' ')} '+interval '5' hour,'${username}','${doctorFee}','${doctor_hospital}');`, (err, result) => {
+        conn.query(`Insert into appointments (PatientId,DoctorId,Time,DoctorName,DoctorFee,Hospital) values (${userId},${id},'${new Date(bookdate).toISOString().slice(0, 19).replace('T', ' ')} '+interval '5' hour,'${Doctor_Name}','${doctorFee}','${doctor_hospital}');`, (err, result) => {
             if (err) {
                 console.log("error is", err);
             }
@@ -72,7 +109,7 @@ router.post("/bookdoc", (req, res) => {
 
 router.get("/appointments/:id", (req, res) => {
     const { id } = req.params;
-    conn.query(`SELECT users.id,users.name as patient,appointments.Time FROM wecare.users  inner join appointments on appointments.PatientId=users.id where appointments.DoctorId=${id} `, (err, result) => {
+    conn.query(`SELECT users.id,users.name as patient,appointments.Time,appointments.Id as appointment_id FROM wecare.users  inner join appointments on appointments.PatientId=users.id where appointments.DoctorId=${id} and appointments.id NOT IN (SELECT appointment_id FROM checkup) `, (err, result) => {
         if (err) {
             res.status(422).json("no data available");
         } else {
@@ -109,11 +146,16 @@ router.get("/getDoctors", (req, res) => {
     // const {city,hospital} = req.params;
     let query = "SELECT * FROM doctor";
     if (req.query.city != 'undefined' && req.query.hospital != 'undefined') {
-        query = `SELECT doctor.* FROM doctor inner join hospital on hospital.Location='${req.query.city}' AND hospital.Name='${req.query.hospital}' and hospital.Id=doctor.HospitalId;`;
+        query = `SELECT * FROM doctor WHERE city='${req.query.city}' AND hospital='${req.query.hospital}';`;
     }
     else if (req.query.city != 'undefined') {
-        query = `SELECT doctor.* FROM doctor inner join hospital on hospital.Location='${req.query.city}' and hospital.Id=doctor.HospitalId;`;
+        query = `SELECT * FROM doctor WHERE city='${req.query.city}' ;`;
     }
+    else if(req.query.hospital != 'undefined')
+    {
+        query = `SELECT * FROM doctor WHERE hospital='${req.query.hospital}';`;
+    }
+    console.log(query);
     conn.query(query, (err, result) => {
         if (err) {
             res.status(422).json("no data available");
@@ -327,7 +369,8 @@ router.post("/login", async (req, res) => {
                 const payload = {
                     userId: results[0].id,
                     username: results[0].name,
-                    password: results[0].password
+                    password: results[0].password,
+
 
                 };
                 // const options = {
@@ -448,9 +491,13 @@ router.post("/loginPharmacy", async (req, res) => {
                 const payload = {
                     phramacyID: results[0].id,
                     name: results[0].name,
-                    password: results[0].password
+                    address:results[0].address,
+                    city:results[0].city,
+                    phonenumber:results[0].phonenumber,
+                    password: results[0].password,
 
                 };
+
                 const token = jwt.sign(payload, secretKey);
             
                 // const dbpassword = results[0].password;
@@ -485,8 +532,61 @@ router.post("/loginPharmacy", async (req, res) => {
 });
 
 
+//get patient prescription for pharmacy
+router.post("/getprescpharmacy", async (req, res) => {
+    const PID = req.body.UserID;
+    const date = req.body.Time;   
+    
+    console.log(PID, date);
+    conn.query('SELECT * FROM checkup WHERE UserID = ?', [PID], async (error, results, fields) => {
+        if (error) {
+            console.log(error);
+            res.send({
+                "code": 400,
+                "failed": "error occurred"
+            });
+        } else {
+            if (results.length > 0) {
 
+                if (date) {
+                    console.log("success login");
 
+                    res.send({
+                        "code": 200,
+                        "success": "login successful",
+                    });
+                }else {
+                    console.log("failed login");
+
+                    res.send({
+                        "code": 204,
+                        "failed": "PID and Date do not match"
+                    });
+                }
+            } else {
+                console.log("PID does not exist");
+
+                res.send({
+                    "code": 204,
+                    "failed": "PID does not exist"
+                });
+            }
+        }
+    });
+});
+
+//get patient prescription for phrmcy
+router.get("/getprescriptiondown/:id", (req, res) => {
+    console.log("get patien prescriptoin")
+    const { id } = req.params
+    conn.query("SELECT * FROM checkup WHERE Id = ? ", id, (err, result) => {
+        if (err) {
+            res.status(422).json("error");
+        } else {
+            res.status(201).json(result);
+        }
+    })
+});
 
 
 // update Patients
@@ -495,6 +595,7 @@ router.patch("/updatepatient/:id", (req, res) => {
     const { id } = req.params;
 
     const data = req.body;
+    console.log(req.body);
 
     conn.query("UPDATE users SET ? WHERE id = ? ", [data, id], (err, result) => {
         if (err) {
@@ -663,10 +764,13 @@ router.get("/getpatient/:id", (req, res) => {
     })
 });
 
+
 //get patient prescription
 router.get("/getprescription/:id", (req, res) => {
-    const { id } = req.params
-    conn.query("SELECT * FROM checkup WHERE Id = ? ", id, (err, result) => {
+    console.log("get patien prescriptoin")
+    // const { id } = req.params
+    const id = 2;
+    conn.query("SELECT * FROM checkup WHERE appointment_id = ? ", id, (err, result) => {
         if (err) {
             res.status(422).json("error");
         } else {
@@ -675,11 +779,18 @@ router.get("/getprescription/:id", (req, res) => {
     })
 });
 
+
+
+
+
+
+
+
 //show all appointments
 router.get("/getAllAppointments/:id", (req, res) => {
     const { id } = req.params;
 
-    conn.query("SELECT * FROM appointments WHERE id = ? ", [id],  (err, result) => {
+    conn.query("SELECT * FROM appointments WHERE PatientId = ? ", [id],  (err, result) => {
         if (err) {
             res.status(422).json("no data available");
         } else {
@@ -688,6 +799,19 @@ router.get("/getAllAppointments/:id", (req, res) => {
     })
 });
 
+// show all medicines record
+router.get("/getMedicineRecord/:name", (req, res) => {
+    const { name } = req.params;
+    
+    conn.query("SELECT * FROM medicinerecord1 WHERE name = ?", [name], (err, result) => {
+      if (err) {
+        res.status(422).json("no data available");
+      } else {
+        res.status(201).json(result);
+      }
+    });
+  });
+  
 
 router.get("/getAppointment/:id", (req, res) => {
     const { id } = req.params;
@@ -707,6 +831,71 @@ router.get("/getAppointment/:id", (req, res) => {
       }
     });
   });
+
+
+  router.get("/getAppointment/:id", (req, res) => {
+    const { id } = req.params;
+  
+    const query = `SELECT appointments.DoctorName, appointments.Hospital, appointments.DoctorFee, checkup.Medicines, checkup.Diagnosis
+                   FROM appointments
+                   JOIN checkup ON appointments.Id = checkup.appointment_id
+                   WHERE appointments.PatientId = ?`;
+  
+    conn.query(query, id, (err, result) => {
+      if (err) {
+        console.error(err);
+        res.status(422).json("no data available");
+      } else {
+        console.log(result);
+        res.status(201).json(result);
+      }
+    });
+  });
+
+  
+  //changepassword
+router.post("/changepassword", async (req, res) => {
+    const { id } = req.params;
+    const {password } = req.body;
+
+    if (!password) {
+        res.status(422).json("please fill all fields");
+        console.log("iam in if field");
+        return;
+    }
+
+    try {
+        conn.query("SELECT * FROM users WHERE id = ?", [id], (err, result) => {
+            if (err) {
+                console.log("error checking if user exists:", err);
+                res.status(500).json("Internal Server Error");
+                return;
+            }
+
+            console.log("password is "+ password)
+                const saltRounds = 10; // number of salt rounds to use
+                const salt = bcrypt.genSaltSync(saltRounds); // generate the salt
+                const hashedPassword = bcrypt.hashSync(password, salt);
+                conn.query(
+                    "Update users SET ?",
+                    { password: hashedPassword },
+                    (err, result) => {
+                        if (err) {
+                            console.log("error inserting user:", err);
+                            res.status(500).json("Internal Server Error");
+                            return;
+                        }
+
+                        res.status(201).json("Password Updated");
+                    }
+                );
+            
+        });
+    } catch (error) {
+        res.status(422).json(error);
+    }
+});
+
   
 
 module.exports = router;
