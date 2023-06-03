@@ -538,7 +538,7 @@ router.post("/getprescpharmacy", async (req, res) => {
     const date = req.body.Time;   
     
     console.log(PID, date);
-    conn.query('SELECT * FROM checkup WHERE UserID = ?', [PID], async (error, results, fields) => {
+    conn.query('SELECT * FROM checkup WHERE UserId = ? and Time =?', [PID,date], async (error, results, fields) => {
         if (error) {
             console.log(error);
             res.send({
@@ -549,12 +549,13 @@ router.post("/getprescpharmacy", async (req, res) => {
             if (results.length > 0) {
 
                 if (date) {
-                    console.log("success login");
-
+                   console.log(results);
                     res.send({
-                        "code": 200,
-                        "success": "login successful",
-                    });
+                "code": 200,
+                "failed": "error occurred",
+                'data':results,
+            });
+                //    return results;
                 }else {
                     console.log("failed login");
 
@@ -579,7 +580,7 @@ router.post("/getprescpharmacy", async (req, res) => {
 router.get("/getprescriptiondown/:id", (req, res) => {
     console.log("get patien prescriptoin")
     const { id } = req.params
-    conn.query("SELECT * FROM checkup WHERE Id = ? ", id, (err, result) => {
+    conn.query("SELECT * FROM checkup WHERE UserId = ? ", id, (err, result) => {
         if (err) {
             res.status(422).json("error");
         } else {
@@ -588,6 +589,23 @@ router.get("/getprescriptiondown/:id", (req, res) => {
     })
 });
 
+
+//savereview
+router.post("/savereview", (req, res) => {
+    const { id ,comment,type} = req.body;
+    console.log(id,comment,type);
+    // update appointments SET comment="test review" WHERE id=2;
+    //firsr make db coloumn
+    conn.query("UPDATE appointments SET comment = ? , reviewtype = ? WHERE id = ? ;", [comment,type,id], (err, result) => {
+        if (err) {
+            console.log(err);
+            res.status(422).json({ message: "error" });
+        } else {
+            // console.log
+            res.status(201).json(result);
+        }
+    })
+});
 
 // update Patients
 router.patch("/updatepatient/:id", (req, res) => {
@@ -733,8 +751,12 @@ router.delete("/deletePatient/:id", (req, res) => {
 router.post('/doctor_records/:id', (req, res) => {
     let { appointment_id, Diagnosis, Allergies, Medicines, Notes, DoctorId, UserId } = req.body;
     const newRecord = { appointment_id, Diagnosis, Allergies, Medicines: JSON.stringify(Medicines), Notes, DoctorId, UserId };
+    const currentDate = new Date();
+    const formattedDate = `${currentDate.getDate()}/${currentDate.getMonth() + 1}/${currentDate.getFullYear()}`;
+
     console.log(newRecord);
-    conn.query('Insert into checkup (appointment_id,Diagnosis,Allergies,Medicines,Notes,DoctorId,UserId) VALUES  (?,?,?,?,?,?,?) ', [appointment_id, Diagnosis, Allergies, JSON.stringify(Medicines), Notes, DoctorId, UserId], (err, result) => {
+        
+    conn.query('Insert into checkup (appointment_id,Diagnosis,Allergies,Medicines,Notes,DoctorId,UserId,Time) VALUES  (?,?,?,?,?,?,?,?) ', [appointment_id, Diagnosis, Allergies, JSON.stringify(Medicines), Notes, DoctorId, UserId,formattedDate], (err, result) => {
         if (err) {
             throw err;
         }
@@ -768,9 +790,9 @@ router.get("/getpatient/:id", (req, res) => {
 //get patient prescription
 router.get("/getprescription/:id", (req, res) => {
     console.log("get patien prescriptoin")
-    // const { id } = req.params
-    const id = 2;
-    conn.query("SELECT * FROM checkup WHERE appointment_id = ? ", id, (err, result) => {
+    const { id } = req.params
+    // const id = 2;
+    conn.query("SELECT checkup.*,appointments.DoctorName,appointments.DoctorFee,appointments.Hospital FROM checkup inner join appointments on checkup.appointment_id=appointments.id where checkup.appointment_id=? ", id, (err, result) => {
         if (err) {
             res.status(422).json("error");
         } else {
@@ -780,6 +802,18 @@ router.get("/getprescription/:id", (req, res) => {
 });
 
 
+//get doctor reviews
+router.get("/getReviews/:id", (req, res) => {
+    const { id } = req.params
+    conn.query("SELECT appointments.comment,appointments.reviewtype,appointments.DoctorName,users.name FROM \
+    wecare.appointments inner join wecare.users on appointments.PatientId=users.Id  where DoctorId=? ", id, (err, result) => {
+        if (err) {
+            res.status(422).json("error");
+        } else {
+            res.status(201).json(result);
+        }
+    })
+});
 
 
 
